@@ -1,0 +1,38 @@
+#poem{
+	font-size: 30px;
+	z-index:-1;
+	color:gray;
+}
+
+#gameOverMessage{
+	font-size: 60px;
+	font-family: courier;
+	color: red;
+ 	position: absolute;
+ 	bottom: 40%;
+ 	text-align: center;
+ 	width: 100%;
+ 	visibility: hidden;
+}
+
+html,body {
+	height:100%;
+	width:100%;
+}
+
+.center {
+   position: absolute;
+   bottom: 60%;
+   text-align: center;
+   width: 100%;
+}
+
+svg {
+	position:fixed;
+	top:0;
+	bottom:0;
+	left:0;
+	right:0;
+	height:100%;
+	width:100%;
+}

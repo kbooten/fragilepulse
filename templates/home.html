@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Fragile Pulse: A Meditation App</title>
+    <link rel="stylesheet" href="/static/animate.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src='https://webrtc.github.io/adapter/adapter-latest.js'></script>
+    <script src="{{ url_for('static', filename='diff-cam-engine.js') }}"></script>
+    <script src="{{ url_for('static', filename='p5.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='p5.sound.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='randomColor.min.js') }}"></script>
+  </head>
+  <body onload="addVerse()">
+    <div id="gameOverMessage">Error: Distraction Limit Reached</div>
+    <div id='poem' class="center"></div>
+<!--     <div id='testButtons'>
+       <button onclick="testDistract()">test</button> 
+    </div> -->
+  </body>
+	<script>
+
+
+//////////////////////
+// motion detection //
+//////////////////////
+
+
+var isScared = false;
+var currentSentence = "";
+var currentDistraction = "";
+var currentFocusLocationElement = $("#poem");
+var isDistractable = false;
+var isDistractable2 = false;
+var maxDistracts = 20;
+
+
+// function testDistract(){
+//   var random_boolean = Math.random() >= 0.3;
+//   if (random_boolean==true){
+//     placeEars();
+//     getDistracted();
+//   }else{
+//     placeEyes();
+//     getDistracted();    
+//   }
+// }
+
+
+function initSuccess() {
+	DiffCamEngine.start();
+}
+
+
+function initError() {
+	alert('Something went wrong.');
+}
+
+function motionDetect(payload) {
+	//console.log(payload.score);
+  if (payload.score>400){
+    getDistracted();
+    var random_boolean = Math.random() >= 0.3;
+    if (random_boolean==true){
+      placeEyes();
+    }else{
+      placeEars();
+    }
+  }
+}
+
+
+DiffCamEngine.init({
+	initSuccessCallback: initSuccess,
+	initErrorCallback: initError,
+	captureIntervalTime: 500,
+	captureCallback: motionDetect,
+});
+
+
+/////////////////////
+// sound detection //
+/////////////////////
+
+
+function setup(){
+  // Create an Audio input
+  input = new p5.AudioIn();
+  input.start();
+}
+
+
+function soundMeasure(){
+  // measure sound and trigger event at threshold
+  micLevel = input.getLevel();
+  //console.log(micLevel);
+  if (micLevel>.08){
+    getDistracted();
+    placeEars();
+  }
+}
+
+
+setInterval(soundMeasure,500);  
+
+
+
+///////////
+// verse //
+///////////
+
+var basicIntro = [
+      "",
+      "(You seem anxious.)",
+      "(Let's try a meditation exercise.)",
+      "(Try to calm your mind and body.)",
+      "(Be as still as you can be.)",
+      "",
+]
+
+var successIntro = [
+      "",
+      "",
+      "(Well done.)",
+      "(You have made it through the meditation.)",
+      "(Go and carry this stillness with you.  )",
+      "",
+      "(Or, if you wish, linger and start again.)",
+      "",
+      "",
+      "",
+      "",
+      "",
+]
+
+
+var gameOverIntro = [
+      "",
+      "",
+      "",
+      "(The distractions overwhelmed us.)",
+      "(Let's start over.)",
+      "(Try to calm your body.)",
+      "(Try to calm your mind, which resides in your body.)",
+      "(Be as still as you can be.)",
+      "",
+]
+
+
+var poemText = [
+
+      "You are in the forest.",
+      "It is night.  The ground is soft.",
+      "You have been here many times before.",
+      "You have walked beneath this tree.",
+      "You come here because this is where you bury things.",
+      "You bury them to keep them safe, because you will need them.",
+      "The moon is dim.  It looks heavier than usual.",
+      "Your fingers sink into the earth.",
+      "You also feel heavier than usual.",
+      "Yu walked here from your worries.",
+      "You have a job but cannot remember it.",
+      "Why can you not remember it?",
+      "Because your hands are in the earth.",
+      "Your hands form a circuit between the earth and your brain.",
+      "But what flows is so much slower than electricity.",
+      "What flows is slower than a river.",
+      "What flows is slower than a leaf.",
+      "What flows is slower than the way that leaves breathe.",
+      "The way that leaves breathe, when you are not looking.",
+      "You, beneath the heavy blanket of the forest, are not looking.",
+      "Nobody is looking at you.  You are alone.",
+      "You are the only animal in this forest.",
+      "Yours is the only imagination in this forest.",
+      "You breathe in and out.    In.   And out.",
+      "Everything that can be done will be done tonight",
+      "Everything that will be done shall be done tomorrow",
+      "Your fingers touch something hard.",
+      "It is a bird that has turned into an emerald.",
+      "When you look into it you could see your future.",
+      "It is not important that you see your future.",
+      "Instead you consider a city you once visited.",
+      "Everything has changed.  Yet they still await you.",
+      "It does not matter if you never arrive.  They await you.",
+      "Not the way one awaits a saint.",
+      "The way one awaits summer.",
+      "If you came back as an ant, you would build things.",
+      "How do you know you have not?",
+      "A person is a kind of ant",
+      "Your know in what way this is true.  You didn't always know.",
+      "You do now.",
+      " ",
+]
+
+var poem = basicIntro.concat(poemText);
+
+encouragements = ["(Ok...let's get back to the meditation...)","(Good, back on track....)","(Yes, back to the meditation...)","(Where were we? Ah yes...)"]
+
+
+function startAnxiety(){
+  isDistractable=true;
+  isDistractable2=true;
+}
+
+
+function stopAnxiety(){
+  isScared = false;
+  currentSentence = "";
+  currentDistraction = "";
+  currentFocusLocationElement = $("#poem");
+  isDistractable = false;
+  isDistractable2 = false;
+  //
+  poem = successIntro.concat(poemText);
+  addVerse();
+  cleanMind();
+}
+
+
+function cleanMind(){
+  $.get("/cleanMind", {"currentSentence": JSON.stringify(currentSentence)}).done(function(data){
+    //nonce
+  });
+}
+
+function gameOver(){
+  cleanMind();
+  ///
+  isScared = false;
+  currentSentence = "";
+  currentDistraction = "";
+  currentFocusLocationElement = $("#poem");
+  isDistractable = false;
+  isDistractable2 = false;
+  //
+  $('body .distractionCounter').remove();
+  $('body .strayThought').remove();
+  poem = gameOverIntro.concat(poemText);
+  addVerse();
+  //
+  $('#gameOverMessage').css('visibility','visible');
+  setTimeout(function(){$('#gameOverMessage').css('visibility','hidden');},8000);
+}
+
+function addVerse(){
+  if (isScared==false){
+    var nextline = poem.shift()
+    lastline = nextline;
+    if (nextline == "You are in the forest."){
+      startAnxiety();
+    }
+    if (nextline == " "){
+      stopAnxiety();
+    }
+
+    $('#poem').html("<span style='display:none';>"+nextline+"</span>");
+    setTimeout(function(){
+      if (nextline[0]!="("){
+        currentSentence=nextline;
+      }
+    },1000);
+    $('#poem span:last-child').fadeIn(3500).promise().done(function() {
+      setTimeout(function(){
+        $("#poem span:last-child").fadeOut(3500).promise().done(function(){
+          addVerse();
+        });
+      });
+    });
+  }
+}
+
+
+function getDistracted(){
+  if (isDistractable==true){
+    console.log('distracted!')
+    if (isScared==false){
+      isScared=true;
+      startDistraction();
+      poem.unshift(currentSentence);
+      //add an encouragement to the beginning
+      var anEncouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
+      poem.unshift(anEncouragement);
+    }else{
+      continueDistraction();
+    }
+    $('#poem').empty();    
+  }
+  //coolOff=true;
+  //setTimeout(function(){coolOff=false;},300); //keeps them from coming too fast
+}
+
+
+function checkEmotions(){
+  if (isScared==true){
+    var numberOfDistractions = $('body .strayThought').length;
+    console.log(numberOfDistractions)
+    if (numberOfDistractions==0){
+      isScared=false;
+      addVerse();
+      currentFocusLocationElement = $("#poem");
+    }  
+    var totalCountersOfDistraction = $('body .distractionCounter').length;
+    if (totalCountersOfDistraction>maxDistracts){
+      console.log("gameover")
+      gameOver();
+    }  
+  }
+}
+
+setInterval(function(){checkEmotions();},3000);
+
+
+///////////////////
+// stray thought //
+///////////////////
+
+// getting focus
+function startDistraction(){
+  console.log("START DISTRACTION>")
+  isDistractable=false;
+  $.get("/distraction", {"currentSentence": JSON.stringify(currentSentence)}).done(function(data){
+    var newFocus = data['focus']
+    console.log(newFocus)
+    currentDistraction = newFocus
+    placeRandomDiv(newFocus);
+    isDistractable=true;
+    isDistractable2=true;
+  });
+}
+
+// continue distraction
+function continueDistraction(){
+  console.log("CONTINUE DISTRACTION>")
+  isDistractable=false;
+  $.get("/distraction", {"currentSentence": JSON.stringify(currentDistraction)}).done(function(data){
+    var newFocus = data['focus']
+    console.log(newFocus)
+    currentDistraction = newFocus
+    placeRandomDiv(newFocus);
+    isDistractable=true;
+    isDistractable2=true;
+  });
+}
+
+
+var winWidth = window.innerWidth;
+var winHeight = window.innerHeight;
+
+function createLineSvg(x1,y1,x2,y2){
+  var newLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  newLine.setAttribute("x1",x1);
+  newLine.setAttribute("y1",y1);
+  newLine.setAttribute("x2",x2);
+  newLine.setAttribute("y2",y2);
+  newLine.setAttribute('stroke', 'lightgray');
+  return newLine;
+}
+
+
+// makes it move around and then die
+function life(e1,e2){
+  var lifeTime = 150;
+  var e1Pos = e1.position();
+  var e2Pos = e2.position();
+  var willItJiggle = Math.random() >= .8;
+
+  // make a line
+  if (e2.attr('id')=="poem"){
+    var newLine = createLineSvg(e1Pos.left+5,e1Pos.top+5,winWidth/2,winHeight/2);  //just go from center...
+  }else{
+    var newLine = createLineSvg(e1Pos.left+5,e1Pos.top+5,e2Pos.left+5,e2Pos.top+5);
+  }
+  var newSVG = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  $(newSVG).append(newLine);
+  $("body").append(newSVG);
+
+
+  var interval = setInterval(function(){
+
+    //flipbool
+    var flipBool = false;
+    if (willItJiggle==true){
+      var flipBool = Math.random() >= 0.06;
+    }
+
+    //
+    if (flipBool==true){
+      var topSkitter = e2Pos.top+getRandomNumber(-3,3);      // don't skitter
+      var leftSkitter = e2Pos.left+getRandomNumber(-3,3);
+      e2.css({
+        "top":topSkitter+"px",
+        "left":leftSkitter+"px", 
+      });
+    }else{
+      e2.css({
+        "top":e2Pos.top+"px",
+        "left":e2Pos.left+"px", 
+      });
+    }
+
+
+
+    // take away life
+    lifeTime-=1;
+    //if (life>.99999){
+    if (lifeTime<1){
+      clearInterval(interval)
+      e1.remove();
+      $(newSVG).remove();
+    } 
+  },50);
+}
+
+
+// randomly styles an element
+var fonts = [ "Arial", "Verdana", "Helvetica", "Comic Sans","Trebuchet"];
+var hues = ['green','yellow','blue']
+//
+function randomStyle(element){
+  $(element).css({
+    "font-family": fonts[Math.floor(Math.random()*fonts.length)],
+    'font-size': getRandomNumber(14,40),
+    'color': randomColor({luminosity: 'bright',hue:hues[Math.floor(Math.random()*hues.length)],}),
+  });
+}
+
+
+// function that returns a random number between a min and max
+function getRandomNumber(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+
+// function createRandom
+// //creates and randomly positions div
+var winWidth = window.innerWidth;
+var winHeight = window.innerHeight;
+// //
+function placeRandomDiv(someText,durable=false){
+  var newElement= document.createElement('div');
+  randomTop = getRandomNumber(0+(winHeight/6),(winHeight-winHeight/6));
+  randomLeft = getRandomNumber(0+(winWidth/6),(winWidth-winWidth/6));
+  $(newElement).css({
+    "position": "absolute",
+    "top":randomTop +"px",
+    "left":randomLeft+"px",
+  });
+  $(newElement).text(someText);
+  if (durable==false){
+    $(newElement).addClass("strayThought");
+  }else{
+    $(newElement).addClass("distractionCounter");
+  }
+  randomStyle(newElement);
+  $("body").append(newElement);
+  if (durable==false){
+    life($(newElement),currentFocusLocationElement);
+    currentFocusLocationElement = $(newElement)
+  }else{
+    $(newElement).fadeTo("slow", 0.2)
+    // $(newElement).zIndex(-2)
+    var flipEmoji = Math.random() >= 0.5;
+    if (flipEmoji==true){
+      $(newElement).css('transform', 'rotateY(180deg)');
+    }
+  }
+}
+
+
+function placeEars(){
+  if (isDistractable2==true){
+    placeRandomDiv('👂',durable=true)
+  }
+}
+
+function placeEyes(){
+  if (isDistractable2==true){
+    placeRandomDiv('👁️',durable=true)
+  }
+}
+
+	</script>
+</html>
